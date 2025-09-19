@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Pembuat Soal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library untuk export ke Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            min-width: 1800px; /* Lebar minimal untuk mencegah kolom terlalu sempit */
+        }
+        th, td {
+            white-space: nowrap;
+            padding: 8px 12px;
+        }
+        input, select, textarea {
+            border-radius: 0.375rem; /* rounded-md */
+            border: 1px solid #D1D5DB; /* border-gray-300 */
+            padding: 8px;
+            width: 100%;
+            background-color: #F9FAFB;
+        }
+        textarea {
+            min-height: 40px;
+            white-space: pre-wrap;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Aplikasi Pembuat Kisi-kisi dan Soal</h1>
+                    <p class="text-gray-600 mt-1">Buat soal dengan format tabel dan ekspor ke Excel dengan mudah.</p>
+                </div>
+                <button id="export-excel-btn" class="mt-4 sm:mt-0 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-300 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    Export ke Excel
+                </button>
+            </div>
+
+            <!-- Generator Soal AI -->
+            <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg mb-6 shadow">
+                <div class="flex items-center mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                    <h2 class="text-xl font-semibold">Generator Soal Otomatis (AI)</h2>
+                </div>
+                <div id="ai-generator-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="ai-materi" class="block text-sm font-medium mb-1">Materi</label>
+                        <textarea id="ai-materi" rows="2" class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="Contoh: Sejarah Kemerdekaan Indonesia"></textarea>
+                    </div>
+                    <div>
+                        <label for="ai-tujuan" class="block text-sm font-medium mb-1">Tujuan Pembelajaran</label>
+                        <textarea id="ai-tujuan" rows="2" class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="Siswa dapat menganalisis..."></textarea>
+                    </div>
+                    <div>
+                        <label for="ai-level" class="block text-sm font-medium mb-1">Target Kompetensi (Taksonomi SOLO)</label>
+                         <select id="ai-level" class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="L1">L1 (Multistruktural / Unistruktural)</option>
+                            <option value="L2">L2 (Relasional)</option>
+                            <option value="L3" selected>L3 (Berpikir Abstrak yang Mendalam)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="ai-jumlah" class="block text-sm font-medium mb-1">Jumlah Soal</label>
+                        <input type="number" id="ai-jumlah" min="1" max="10" value="3" class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button id="generate-ai-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-lg shadow transition duration-300 flex items-center">
+                        <svg id="ai-button-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                        <svg id="ai-loader" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span id="ai-button-text">Buat Soal dengan AI</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tombol Tambah Soal -->
+            <div class="mb-6">
+                 <button id="add-question-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-5 rounded-lg shadow transition duration-300 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Tambah Soal Manual
+                </button>
+            </div>
+
+            <!-- Container Tabel -->
+            <div class="table-container border border-gray-200 rounded-lg">
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">Aksi</th>
+                            <th class="px-4 py-3">No. Soal</th>
+                            <th class="px-4 py-3">No. KD</th>
+                            <th class="px-4 py-3" style="min-width: 250px;">Tujuan Pembelajaran</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Materi</th>
+                            <th class="px-4 py-3" style="min-width: 250px;">Indikator</th>
+                            <th class="px-4 py-3">Kunci Jawaban</th>
+                            <th class="px-4 py-3">Level Kognitif</th>
+                            <th class="px-4 py-3" style="min-width: 300px;">Soal</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Opsi A</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Opsi B</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Opsi C</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Opsi D</th>
+                            <th class="px-4 py-3" style="min-width: 200px;">Opsi E</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questions-table-body">
+                        <!-- Baris soal akan ditambahkan di sini oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+             <p id="empty-state" class="text-center text-gray-500 py-10">Belum ada soal. Silakan gunakan generator AI atau tambah soal manual untuk memulai.</p>
+        </div>
+    </div>
+
+    <!-- Modal untuk Tambah/Edit Soal -->
+    <div id="question-modal" class="modal-overlay hidden">
+        <div class="modal-content w-full max-w-4xl">
+            <form id="question-form">
+                <input type="hidden" id="modal-question-index">
+                <h2 id="modal-title" class="text-2xl font-bold mb-6">Tambah Soal Baru</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Kolom Kiri -->
+                    <div>
+                        <div class="mb-4">
+                            <label for="no-kd" class="block mb-2 text-sm font-medium text-gray-900">No. KD</label>
+                            <input type="text" id="no-kd" class="bg-gray-50 border border-gray-300" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="tujuan-pembelajaran" class="block mb-2 text-sm font-medium text-gray-900">Tujuan Pembelajaran</label>
+                            <textarea id="tujuan-pembelajaran" rows="3" class="bg-gray-50 border border-gray-300"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label for="materi" class="block mb-2 text-sm font-medium text-gray-900">Materi</label>
+                            <textarea id="materi" rows="3" class="bg-gray-50 border border-gray-300"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label for="indikator" class="block mb-2 text-sm font-medium text-gray-900">Indikator</label>
+                            <textarea id="indikator" rows="3" class="bg-gray-50 border border-gray-300"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                             <div class="mb-4">
+                                <label for="kunci-jawaban" class="block mb-2 text-sm font-medium text-gray-900">Kunci Jawaban</label>
+                                <select id="kunci-jawaban" class="bg-gray-50 border border-gray-300">
+                                    <option>A</option>
+                                    <option>B</option>
+                                    <option>C</option>
+                                    <option>D</option>
+                                    <option>E</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label for="level-kognitif" class="block mb-2 text-sm font-medium text-gray-900">Level Kognitif</label>
+                                <input type="text" id="level-kognitif" class="bg-gray-50 border border-gray-300" placeholder="Contoh: L1, L2, L3">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Kolom Kanan -->
+                    <div>
+                         <div class="mb-4">
+                            <label for="soal" class="block mb-2 text-sm font-medium text-gray-900">Teks Soal</label>
+                            <textarea id="soal" rows="4" class="bg-gray-50 border border-gray-300" required></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label for="opsi-a" class="block mb-2 text-sm font-medium text-gray-900">Opsi A</label>
+                            <input type="text" id="opsi-a" class="bg-gray-50 border border-gray-300">
+                        </div>
+                         <div class="mb-4">
+                            <label for="opsi-b" class="block mb-2 text-sm font-medium text-gray-900">Opsi B</label>
+                            <input type="text" id="opsi-b" class="bg-gray-50 border border-gray-300">
+                        </div>
+                         <div class="mb-4">
+                            <label for="opsi-c" class="block mb-2 text-sm font-medium text-gray-900">Opsi C</label>
+                            <input type="text" id="opsi-c" class="bg-gray-50 border border-gray-300">
+                        </div>
+                         <div class="mb-4">
+                            <label for="opsi-d" class="block mb-2 text-sm font-medium text-gray-900">Opsi D</label>
+                            <input type="text" id="opsi-d" class="bg-gray-50 border border-gray-300">
+                        </div>
+                         <div class="mb-4">
+                            <label for="opsi-e" class="block mb-2 text-sm font-medium text-gray-900">Opsi E</label>
+                            <input type="text" id="opsi-e" class="bg-gray-50 border border-gray-300">
+                        </div>
+                    </div>
+                </div>
+                 <div class="flex justify-end items-center gap-4 mt-8">
+                    <button type="button" id="cancel-btn" class="text-gray-600 hover:text-gray-900 font-medium py-2 px-4">Batal</button>
+                    <button type="submit" id="save-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="delete-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content w-full max-w-md text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-4 text-gray-400 w-12 h-12" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <h3 class="mb-5 text-lg font-normal text-gray-600">Apakah Anda yakin ingin menghapus soal ini?</h3>
+            <button id="confirm-delete-btn" type="button" class="text-white bg-red-600 hover:bg-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center mr-2">
+                Ya, Hapus
+            </button>
+            <button id="cancel-delete-btn" type="button" class="text-gray-500 bg-white hover:bg-gray-100 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
+                Tidak, Batal
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // State
+            let questions = [];
+
+            // Elemen DOM
+            const tableBody = document.getElementById('questions-table-body');
+            const exportBtn = document.getElementById('export-excel-btn');
+            const emptyState = document.getElementById('empty-state');
+            
+            // Elemen Modal Tambah/Edit
+            const modal = document.getElementById('question-modal');
+            const addQuestionBtn = document.getElementById('add-question-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const questionForm = document.getElementById('question-form');
+            const modalTitle = document.getElementById('modal-title');
+            const modalQuestionIndex = document.getElementById('modal-question-index');
+
+            // Elemen AI Generator
+            const generateAiBtn = document.getElementById('generate-ai-btn');
+            const aiLoader = document.getElementById('ai-loader');
+            const aiButtonText = document.getElementById('ai-button-text');
+            const aiButtonIcon = document.getElementById('ai-button-icon');
+
+            // Elemen Modal Konfirmasi Hapus
+            const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            let questionIndexToDelete = null;
+
+            // --- Fungsi Modal ---
+
+            const openModal = (index = null) => {
+                questionForm.reset();
+                if (index !== null) {
+                    modalTitle.textContent = `Edit Soal No. ${index + 1}`;
+                    modalQuestionIndex.value = index;
+                    const q = questions[index];
+                    document.getElementById('no-kd').value = q.noKd;
+                    document.getElementById('tujuan-pembelajaran').value = q.tujuan;
+                    document.getElementById('materi').value = q.materi;
+                    document.getElementById('indikator').value = q.indikator;
+                    document.getElementById('kunci-jawaban').value = q.kunci;
+                    document.getElementById('level-kognitif').value = q.level;
+                    document.getElementById('soal').value = q.soal;
+                    document.getElementById('opsi-a').value = q.opsiA;
+                    document.getElementById('opsi-b').value = q.opsiB;
+                    document.getElementById('opsi-c').value = q.opsiC;
+                    document.getElementById('opsi-d').value = q.opsiD;
+                    document.getElementById('opsi-e').value = q.opsiE;
+                } else {
+                    modalTitle.textContent = 'Tambah Soal Baru';
+                    modalQuestionIndex.value = '';
+                }
+                modal.classList.remove('hidden');
+            };
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+            };
+
+            const openDeleteModal = (index) => {
+                questionIndexToDelete = index;
+                deleteConfirmModal.classList.remove('hidden');
+            };
+
+            const closeDeleteModal = () => {
+                questionIndexToDelete = null;
+                deleteConfirmModal.classList.add('hidden');
+            };
+            
+            // --- Fungsi Render ---
+
+            const renderTable = () => {
+                tableBody.innerHTML = '';
+                if (questions.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    tableBody.parentElement.parentElement.classList.add('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    tableBody.parentElement.parentElement.classList.remove('hidden');
+                }
+
+                questions.forEach((q, index) => {
+                    const row = document.createElement('tr');
+                    row.className = 'bg-white border-b hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-4 py-2">
+                            <div class="flex items-center space-x-2">
+                                <button data-index="${index}" class="edit-btn text-blue-500 hover:text-blue-700 p-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                                </button>
+                                <button data-index="${index}" class="delete-btn text-red-500 hover:text-red-700 p-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-4 py-2 font-medium text-gray-900">${index + 1}</td>
+                        <td class="px-4 py-2">${q.noKd}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.tujuan}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.materi}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.indikator}</td>
+                        <td class="px-4 py-2">${q.kunci}</td>
+                        <td class="px-4 py-2">${q.level}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.soal}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.opsiA}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.opsiB}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.opsiC}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.opsiD}</td>
+                        <td class="px-4 py-2" style="white-space: normal;">${q.opsiE}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            };
+
+            // --- Logika AI ---
+            const generateQuestionsWithAI = async () => {
+                const materi = document.getElementById('ai-materi').value;
+                const tujuan = document.getElementById('ai-tujuan').value;
+                const level = document.getElementById('ai-level').value; // Ini akan menghasilkan "L1", "L2", atau "L3"
+                const jumlah = document.getElementById('ai-jumlah').value;
+
+                if (!materi || !tujuan || !level || !jumlah) {
+                    alert('Harap isi semua field pada Generator Soal AI.');
+                    return;
+                }
+
+                aiLoader.classList.remove('hidden');
+                aiButtonIcon.classList.add('hidden');
+                aiButtonText.textContent = 'Membuat soal...';
+                generateAiBtn.disabled = true;
+
+                const systemPrompt = `Anda adalah seorang ahli evaluasi pendidikan dan perancang soal ujian yang sangat memahami Taksonomi SOLO (Structure of the Observed Learning Outcome). Tugas Anda adalah membuat soal pilihan ganda yang secara akurat mengukur tingkat pemahaman siswa sesuai dengan level SOLO yang diminta, dari pemahaman permukaan hingga pemahaman mendalam yang abstrak.`;
+
+                const userQuery = `
+                Berdasarkan kerangka Taksonomi SOLO, tolong buatkan ${jumlah} soal pilihan ganda (A, B, C, D, E) dengan detail berikut:
+                - Materi Utama: ${materi}
+                - Tujuan Pembelajaran: ${tujuan}
+                - Target Kompetensi: ${level}
+
+                Interpretasi Target Kompetensi:
+                - 'L1': Buat soal level Unistruktural atau Multistruktural. Soal ini menguji kemampuan mengidentifikasi, menyebutkan, atau menggabungkan beberapa fakta tanpa menghubungkannya.
+                - 'L2': Buat soal level Relasional. Soal ini menguji kemampuan membandingkan, mengklasifikasikan, menganalisis, dan menghubungkan berbagai ide menjadi satu kesatuan yang utuh.
+                - 'L3': Buat soal level Abstrak Diperluas. Soal ini menguji kemampuan untuk berteori, menggeneralisasi, memprediksi, atau menciptakan solusi baru.
+
+                Untuk setiap soal yang Anda hasilkan, Anda WAJIB menyertakan:
+                1.  "indikator": Indikator soal yang spesifik dan sesuai dengan level SOLO yang ditargetkan.
+                2.  "soal": Teks pertanyaan yang jelas dan dirancang untuk mengukur pemahaman pada level SOLO yang sesuai.
+                3.  "levelKognitif": Tentukan level Taksonomi SOLO yang spesifik (contoh: 'Unistruktural', 'Multistruktural', 'Relasional', 'Abstrak Diperluas') untuk soal yang Anda buat, BUKAN L1/L2/L3. Anda harus menentukannya sendiri berdasarkan interpretasi di atas.
+                4.  "opsiA", "opsiB", "opsiC", "opsiD", "opsiE": Lima pilihan jawaban. Satu jawaban harus benar, sementara yang lain adalah pengecoh yang relevan.
+                5.  "kunciJawaban": Kunci jawaban yang benar (hanya hurufnya, contoh: 'A').
+
+                Pastikan format output Anda adalah JSON yang valid dan sesuai dengan skema yang diminta.
+                `;
+                
+                const apiKey = ""; // API key will be handled by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "soal_dihasilkan": {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            "indikator": { "type": "STRING" },
+                                            "soal": { "type": "STRING" },
+                                            "levelKognitif": { "type": "STRING" },
+                                            "opsiA": { "type": "STRING" },
+                                            "opsiB": { "type": "STRING" },
+                                            "opsiC": { "type": "STRING" },
+                                            "opsiD": { "type": "STRING" },
+                                            "opsiE": { "type": "STRING" },
+                                            "kunciJawaban": { "type": "STRING" }
+                                        },
+                                        required: ["indikator", "soal", "levelKognitif", "opsiA", "opsiB", "opsiC", "opsiD", "opsiE", "kunciJawaban"]
+                                    }
+                                }
+                            },
+                            required: ["soal_dihasilkan"]
+                        }
+                    }
+                };
+                
+                const mapSoloToL = (soloLevel) => {
+                    if (!soloLevel) return 'L1';
+                    const level = soloLevel.toLowerCase();
+                    if (level.includes('unistruktural') || level.includes('multistruktural')) {
+                        return 'L1';
+                    } else if (level.includes('relasional')) {
+                        return 'L2';
+                    } else if (level.includes('abstrak')) {
+                        return 'L3';
+                    }
+                    return soloLevel; // Fallback
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        console.error("API Error Response:", errorBody);
+                        throw new Error(`Gagal menghubungi AI. Status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Respons dari AI tidak valid atau kosong.");
+                    }
+                    const jsonText = result.candidates[0].content.parts[0].text;
+                    const generatedData = JSON.parse(jsonText);
+
+                    if (generatedData && generatedData.soal_dihasilkan) {
+                        const newQuestions = generatedData.soal_dihasilkan.map(item => ({
+                            noKd: 'AI-SOLO',
+                            tujuan: tujuan,
+                            materi: materi,
+                            indikator: item.indikator,
+                            kunci: item.kunciJawaban.toUpperCase(),
+                            level: mapSoloToL(item.levelKognitif), // Menggunakan fungsi mapping
+                            soal: item.soal,
+                            opsiA: item.opsiA,
+                            opsiB: item.opsiB,
+                            opsiC: item.opsiC,
+                            opsiD: item.opsiD,
+                            opsiE: item.opsiE,
+                        }));
+
+                        questions.push(...newQuestions);
+                        renderTable();
+                    } else {
+                         throw new Error("Format respons dari AI tidak sesuai.");
+                    }
+
+                } catch (error) {
+                    console.error('Error saat membuat soal dengan AI:', error);
+                    alert('Terjadi kesalahan saat mencoba membuat soal. Silakan coba lagi. Detail: ' + error.message);
+                } finally {
+                    aiLoader.classList.add('hidden');
+                    aiButtonIcon.classList.remove('hidden');
+                    aiButtonText.textContent = 'Buat Soal dengan AI';
+                    generateAiBtn.disabled = false;
+                }
+            };
+            
+            // --- Event Listeners ---
+
+            questionForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const index = modalQuestionIndex.value;
+                const questionData = {
+                    noKd: document.getElementById('no-kd').value,
+                    tujuan: document.getElementById('tujuan-pembelajaran').value,
+                    materi: document.getElementById('materi').value,
+                    indikator: document.getElementById('indikator').value,
+                    kunci: document.getElementById('kunci-jawaban').value,
+                    level: document.getElementById('level-kognitif').value,
+                    soal: document.getElementById('soal').value,
+                    opsiA: document.getElementById('opsi-a').value,
+                    opsiB: document.getElementById('opsi-b').value,
+                    opsiC: document.getElementById('opsi-c').value,
+                    opsiD: document.getElementById('opsi-d').value,
+                    opsiE: document.getElementById('opsi-e').value,
+                };
+
+                if (index) {
+                    questions[parseInt(index)] = questionData;
+                } else {
+                    questions.push(questionData);
+                }
+                
+                renderTable();
+                closeModal();
+            });
+
+            tableBody.addEventListener('click', function(e) {
+                const target = e.target.closest('button');
+                if (!target) return;
+
+                const index = target.dataset.index;
+                if (target.classList.contains('edit-btn')) {
+                    openModal(index);
+                } else if (target.classList.contains('delete-btn')) {
+                    openDeleteModal(index);
+                }
+            });
+
+            addQuestionBtn.addEventListener('click', () => openModal());
+            cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) { closeModal(); }
+            });
+            generateAiBtn.addEventListener('click', generateQuestionsWithAI);
+
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (questionIndexToDelete !== null) {
+                    questions.splice(questionIndexToDelete, 1);
+                    renderTable();
+                    closeDeleteModal();
+                }
+            });
+            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+            deleteConfirmModal.addEventListener('click', (e) => {
+                if (e.target === deleteConfirmModal) { closeDeleteModal(); }
+            });
+
+            exportBtn.addEventListener('click', function() {
+                if (questions.length === 0) {
+                    alert("Tidak ada data soal untuk diekspor!");
+                    return;
+                }
+                const dataToExport = questions.map((q, index) => ({
+                    'No. Soal': index + 1,
+                    'No. KD': q.noKd,
+                    'Tujuan Pembelajaran': q.tujuan,
+                    'Materi': q.materi,
+                    'Indikator': q.indikator,
+                    'Kunci Jawaban': q.kunci,
+                    'Level Kognitif': q.level,
+                    'Soal': q.soal,
+                    'A': q.opsiA,
+                    'B': q.opsiB,
+                    'C': q.opsiC,
+                    'D': q.opsiD,
+                    'E': q.opsiE,
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Soal');
+
+                const objectMaxLength = [];
+                dataToExport.forEach(obj => {
+                    Object.keys(obj).forEach((key, i) => {
+                        let len = (obj[key] || "").toString().length;
+                        if(key.length > len) len = key.length;
+                        objectMaxLength[i] = Math.max(objectMaxLength[i] || 0, len);
+                    });
+                });
+                worksheet["!cols"] = objectMaxLength.map(w => ({ width: w + 2 }));
+
+                XLSX.writeFile(workbook, 'Data Soal.xlsx');
+            });
+
+            renderTable();
+        });
+    </script>
+
+</body>
+</html>
+
